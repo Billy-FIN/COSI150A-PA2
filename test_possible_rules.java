@@ -1,16 +1,29 @@
-class Factorial {
-    public static void main(String[] a) {
-        System.out.println(new Fac().ComputeFac(10));
+class boogaudi {
+    public static void main(String[] args) {
+        System.out.println(1);
     }
 }
 
-class Fac {
-    public int ComputeFac(int num) {
-        int num_aux;
-        if (num < 1)
-            num_aux = 1;
-        else
-            num_aux = num * (this.ComputeFac(num - 1));
-        return num_aux;
+class testClass{
+    int[] log;
+    public int run(int k){
+        int j;
+        int n;
+        int sum;
+        n = log.length;
+        sum=0;
+        j=1;
+        while ((j<n) && (0<j)){
+            if (j*j<n){
+                log[j] = j*j;
+            }else{
+                log[j]= j*j-n;
+            }
+            System.out.println(sum);
+            sum = sum + log[j];
+            j=j+1;
+        }
+        System.out.println(sum);
+        return(sum);
     }
 }

@@ -1,0 +1,262 @@
+options {
+    IGNORE_CASE = false;
+    LOOKAHEAD = 3;
+}
+
+PARSER_BEGIN(prettyPrinter)
+
+import java.io.*;
+
+
+public class prettyPrinter {
+    int indentLevel = 0;
+
+    public static void main(String[] args) {
+
+        if (args.length < 1) {
+            System.out.println("Please pass in the filename for a parameter.");
+            System.exit(1);
+        }
+
+        try{
+            SimpleCharStream stream = new SimpleCharStream(new FileInputStream(args[0]), 0, 0);
+            Token temp_token = null;
+            prettyPrinterTokenManager TkMgr = new prettyPrinterTokenManager(stream);
+            prettyPrinter parser = new prettyPrinter(TkMgr) ;
+            parser.Start() ;
+        } catch (FileNotFoundException e) {
+            System.err.println("File not found: " + args[0]);
+            System.exit(1);
+        } catch (ParseException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+        } catch (TokenMgrError e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+        }
+
+        System.out.println("The syntax is correct!");
+    }
+}
+
+PARSER_END(prettyPrinter)
+
+void Start():{String result;}
+{
+   result = Program() {System.out.println(result); System.out.println("change to see if can commit now!!!");}
+   <EOF>
+}
+
+SKIP: {
+    "\t"
+    | "\r"
+    | " "
+    | "\n"
+    | <COMMENT: <SINGLE_LINE_COMMENT> >
+}
+
+SKIP :
+{
+  "/*" : WithinComment
+}
+
+<WithinComment> SKIP :
+{
+  "*/" : DEFAULT
+}
+
+<WithinComment> MORE :
+{
+  <~[]>
+}
+
+TOKEN: {
+    < #LETTER : ["a"-"z", "A"-"Z"] >
+    | < #DIGIT : (["0"-"9"])+ >
+}
+
+TOKEN: {
+    <AND: "&&">
+    | <LESS_THAN: "<">
+    | <PLUS: "+">
+    | <MINUS: "-">
+    | <MULTIPLY: "*">
+    | <CLASS: "class">
+    | <EXTENDS: "extends">
+    | <PUBLIC: "public">
+    | <STATIC: "static">
+    | <VOID: "void">
+    | <MAIN: "main">
+    | <STRING: "String">
+    | <INT: "int">
+    | <RETURN: "return">
+    | <BOOLEAN: "boolean">
+    | <IF: "if">
+    | <ELSE: "else">
+    | <WHILE: "while">
+    | <PRINT: "System.out.println">
+    | <DOT: ".">
+    | <LENGTH: "length">
+    | <TRUE: "true">
+    | <FALSE: "false">
+    | <THIS: "this">
+    | <NEW: "new">
+    | <LPARENS: "(">
+    | <RPARENS: ")">
+    | <LBRACKET: "[">
+    | <RBRACKET: "]">
+    | <ASSIGN: "=">
+    | <SEMICOLON: ";">
+    | <COMMA: ",">
+    | <NEGATE: "!">
+    | <L_C_BRACKET: "{">
+    | <R_C_BRACKET: "}">
+    | <IDENTIFIER: <LETTER> (<LETTER> | <DIGIT> | "_")* >
+    | <INTEGER_LITERAL: <DIGIT>>
+    | <SINGLE_LINE_COMMENT: "//" (~["\n","\r"])* ("\n"|"\r"|"\r\n")>
+    | <OTHER: ~[] >
+}
+
+String Exp() :
+{Token t;
+ String temp = "", temp1 = "";
+ String expr = "\t"*indentLevel;}
+{
+  ( ( t = <INTEGER_LITERAL> {expr += t.image;}
+   | t = <TRUE> {expr += t.image;}
+   | t = <FALSE> {expr += t.image;}
+   | t = <IDENTIFIER> {expr += t.image;}
+   | t = <THIS> {expr += t.image;}
+   |  <NEW> <INT> <LBRACKET> temp = Exp()  <RBRACKET> {expr += "new int[" + temp  + "]";}
+   | <NEW> t = <IDENTIFIER> <LPARENS> <RPARENS> {expr += "new " + t.image + "()";}
+   | <NEGATE> temp = Exp() {expr += "!" + temp;}
+   | <LPARENS> temp = Exp() <RPARENS> {expr += "(" + temp + ")";})
+       (temp1 = Exp1() {expr += temp1;})?)
+    { return expr;}
+}
+
+String Exp1():
+{   String expr="";
+        String temp = "", temp1 = "";
+        Token t;}
+{
+ (  ( <PLUS> temp = Exp() {expr += " + " + temp;}
+   | <MINUS> temp = Exp() {expr += " - " + temp;}
+   | <MULTIPLY> temp = Exp() {expr += "* " + temp;}
+   | <LESS_THAN> temp = Exp() {expr += "< " + temp;}
+   | <AND> temp = Exp() {expr += " && " + temp;}
+   | <LBRACKET> temp = Exp() <RBRACKET> {expr += "[" + temp + "]";}
+   | <DOT> <LENGTH> {expr += ".length";}
+   | <DOT> t = <IDENTIFIER> <LPARENS> [temp = ExpList()] <RPARENS> {expr += "." + t.image + "(" + temp + ")";}
+   )
+   (temp1 = Exp1() {expr += temp1;})?
+   {    return expr;})
+}
+
+String ExpRest():
+{String expr="", temp = "";}
+{
+    <COMMA> temp = Exp() {expr = ", " + temp;}
+    {return expr;}
+}
+
+String ExpList() :
+ {String expr="", temp = "", temp1 = "";}
+ {
+    temp = Exp() (temp1 = ExpRest())* {expr = temp + temp1;}
+    {return expr;}
+ }
+
+String Program():
+{String expr="", temp = "", temp1 = "";}
+{
+    temp = MainClass() {expr += temp;}
+    (temp1 = ClassDecl() {expr += temp1;})*
+    {return expr;}
+}
+
+String MainClass(): {String expr="", temp = ""; Token t, t1;}
+{
+    <CLASS> t = <IDENTIFIER> <L_C_BRACKET> <PUBLIC> <STATIC> <VOID> <MAIN> <LPARENS> <STRING> <LBRACKET> <RBRACKET> t1 = <IDENTIFIER> <RPARENS> <L_C_BRACKET>  temp = Statement() <R_C_BRACKET> <R_C_BRACKET>
+    {indentLevel += 1;}
+    {expr = "class " + t.image + "{\n" + "public static void main(String[] " + t1.image + "){\n" + temp + "}\n}\n";}
+    {indentLevel -= 1;}
+    {return expr;}
+}
+
+String ClassDecl(): {String expr = "", temp="", temp1=""; Token t, t1;}
+{
+    {indentLevel += 1;}
+
+    <CLASS> t = <IDENTIFIER> {expr += "class " + t.image;}
+    ( <EXTENDS> t1 = <IDENTIFIER> {expr += "extends" + t1.image;})?
+     <L_C_BRACKET> {expr += "{\n";}
+     (temp = VarDecl() {expr += temp;})*
+     (temp1 = MethodDecl() {expr += temp1;})*
+     <R_C_BRACKET> {expr += "}\n";}
+      {indentLevel -= 1;}
+    {return expr;}
+}
+
+String VarDecl():
+{Token t; String expr="\t"*indentLevel, temp="";}
+{
+    temp = Type() t = <IDENTIFIER> <SEMICOLON> {expr = temp + " " + t.image + ";\n";}
+    {return expr;}
+}
+
+String MethodDecl():
+{Token t;
+ String expr=""*indentLevel, type, formalList, varDecl, statement, exp;}
+{
+    {indentLevel += 1;}
+    <PUBLIC> type=Type() t=<IDENTIFIER> <LPARENS> {expr += "public " + type + " " + t.image + "(";}
+    [formalList = FormalList() {expr += formalList;}]
+    <RPARENS> <L_C_BRACKET> {expr += "){\n";}
+    (varDecl = VarDecl() {expr += varDecl;})*
+    (statement = Statement() {expr += statement;})*
+    <RETURN> exp = Exp() <SEMICOLON> <R_C_BRACKET> {expr += "return" + " " + exp + ";\n}\n";}
+    {indentLevel -= 1;}
+    {return expr;}
+}
+
+String FormalList():
+{String expr="", type, formalRest;
+ Token t;}
+{
+    type=Type() t=<IDENTIFIER> {expr += type + " " + t.image;}
+    (formalRest = FormalRest() {expr += formalRest;})*
+    {return expr;}
+}
+
+String FormalRest(): {String expr="",type; Token t;}
+{
+    <COMMA> type=Type() t=<IDENTIFIER> {expr += ", " + type + " " + t;}
+    {return expr;}
+}
+
+String Type(): {Token t; String expr="";}
+{
+    (<INT> <LBRACKET> <RBRACKET> {expr = "int[]";}
+    | <BOOLEAN> {expr = "boolean";}
+    | <INT> {expr = "int";}
+    | t=<IDENTIFIER> {expr = t.image;})
+    {return expr;}
+}
+
+String Statement():
+{String expr = "\t"*indentLevel, statement, statement1, exp, exp1;
+ Token t;}
+{
+   ( <L_C_BRACKET> {expr += "[";}
+    (statement=Statement(){expr += statement;})*
+    <R_C_BRACKET>{expr += "]";}
+    | <IF> <LPARENS> exp=Exp() <RPARENS> statement=Statement() <ELSE> statement1=Statement() {indentLevel += 1;}{expr += "if(\n" + exp + ")\n" + statement + "\nelse\n" + statement1;} {indentLevel -= 1;}
+
+    | <PRINT> <LPARENS> exp=Exp() <RPARENS> <SEMICOLON> {expr += "System.out.println(" + exp + ");\n";}
+
+    | t=<IDENTIFIER> <ASSIGN> exp=Exp() <SEMICOLON> {expr += t.image + " = " + exp + ";\n";}
+    | t=<IDENTIFIER> <LBRACKET> exp=Exp() <RBRACKET> <ASSIGN> exp1=Exp() <SEMICOLON> {expr += t.image + "[" + exp + "]" + " = " + exp1 + ";\n";}
+    )
+    {return expr;}
+}
